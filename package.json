@@ -1,0 +1,19 @@
+{
+  "name": "mercury-2026-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Spikes-2212-Programming-Guild/mercury-2026-server.git"
+  },
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  }
+}
