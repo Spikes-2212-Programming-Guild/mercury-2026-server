@@ -25,6 +25,20 @@ async function login(email, password) {
 
 const USER_TOKEN = login(process.env.USERNAME, process.env.PASSWORD);
 
+app.post('/upload-form', async (req, res) => {
+    const {id, form} = Object.entries(req.body);
+
+    const {error} = await supabase.from("forms")
+        .insert([{id, form}], {headers: {Authorization: `Bearer ${USER_TOKEN}`}}
+        );
+
+    if (error) {
+        return res.status(500).send('Error saving data');
+    } else {
+        res.send('Thank you for submitting your answers!');
+    }
+})
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
