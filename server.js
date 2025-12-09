@@ -26,14 +26,13 @@ async function login(email, password) {
 const USER_TOKEN = login(process.env.USERNAME, process.env.PASSWORD);
 
 app.post('/upload-form', async (req, res) => {
-    const {id, json_data} = Object.entries(req.body);
+    const data = {id, json_data} = Object.entries(req.body);
 
     const {error} = await supabase.from("forms")
-        .insert([{id, json_data}], {headers: {Authorization: `Bearer ${USER_TOKEN}`}}
-        );
+        .insert([data], {headers: {Authorization: `Bearer ${USER_TOKEN}`}});
 
     if (error) {
-        return res.status(500).send('Error saving data');
+        return res.status(500).send('Error saving data' + error.message);
     } else {
         res.send('Thank you for submitting your answers!');
     }
