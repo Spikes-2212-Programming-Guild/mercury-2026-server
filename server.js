@@ -41,6 +41,20 @@ app.post('/upload-form', async (req, res) => {
     }
 })
 
+app.get('/get-form', async (req, res) => {
+    const {id} = req.body;
+    const {data, error} = await supabase
+        .from("forms")
+        .select("*")
+        .eq("id", id)
+
+    if (error) {
+        return res.status(500).send('Error fetching data' + error.message);
+    } else {
+        res.send(data);
+    }
+})
+
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
