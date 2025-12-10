@@ -1,5 +1,6 @@
 const express = require("express");
 const app = express();
+const https = require('https');
 const cors = require("cors");
 const PORT = process.env.PORT || 3000;
 const {createClient} = require("@supabase/supabase-js");
@@ -25,9 +26,25 @@ async function login(email, password) {
 
 const USER_TOKEN = login(process.env.USERNAME, process.env.PASSWORD);
 
-let keepAlive = setInterval(() => {
-    console.log('Keep alive');
-}, 1000 * 60 * 5);
+// keep alive loop
+setInterval(() => {
+    const url = "https://mercury-2026-server.onrender.com";
+    return new Promise((resolve) => {
+        const req = https.get(url, (res) => {
+            if (res.statusCode === 200) {
+                resolve({
+                    statusCode: 200,
+                    body: 'Server pinged successfully',
+                });
+                console.log('Server pinged successfully');
+            } else {
+                console.error('Server ping failed with status code: ', res.statusCode);
+            }
+        });
+
+        req.end();
+    });
+}, 1000 * 60 * 5); // every 5 minutes
 
 app.post('/upload-form', async (req, res) => {
     const {id, json_data} = req.body;
