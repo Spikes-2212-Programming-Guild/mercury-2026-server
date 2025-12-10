@@ -10,7 +10,7 @@ app.use(express.json());
 
 async function login(email, password) {
 
-    const {user, session, error} = await supabase.auth.signInWithPassword({
+    const { session, error} = await supabase.auth.signInWithPassword({
         email,
         password,
     });
@@ -25,13 +25,17 @@ async function login(email, password) {
 
 const USER_TOKEN = login(process.env.USERNAME, process.env.PASSWORD);
 
+let keepAlive = setInterval(() => {
+    console.log('Keep alive');
+}, 1000 * 60 * 5);
+
 app.post('/upload-form', async (req, res) => {
     const {id, json_data} = req.body;
 
     const {error} = await supabase.from("forms").upsert(
         { id, json_data},
-        { onConflict: "id" },
-        {headers: {Authorization: `Bearer ${USER_TOKEN}`}}
+        { onConflict: "id" }, // on conflict update the row
+        { Authorization: `Bearer ${USER_TOKEN}`}
     );
 
     if (error) {
@@ -42,11 +46,12 @@ app.post('/upload-form', async (req, res) => {
 })
 
 app.get('/get-form', async (req, res) => {
-    const {id} = req.body;
+    const headers = req.headers;
+    const id = headers.id;
     const {data, error} = await supabase
         .from("forms")
         .select("*")
-        .eq("id", id)
+        .eq("id", id) // only take rows where "id" = id
 
     if (error) {
         return res.status(500).send('Error fetching data' + error.message);
@@ -56,5 +61,5 @@ app.get('/get-form', async (req, res) => {
 })
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
