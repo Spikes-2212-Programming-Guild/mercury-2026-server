@@ -27,11 +27,11 @@ const USER_TOKEN = login(process.env.USERNAME, process.env.PASSWORD);
 
 if (process.env.RENDER) {
     const APP_URL = process.env.RENDER_EXTERNAL_URL;
-    const INTERVAL_MS = 5 * 1000; // 14 minutes
+    const INTERVAL_MS = 14 * 60 * 1000; // ping every 14 minutes
 
     async function ping() {
         await fetch(APP_URL); // ping the server (don't care for the response)
-        console.log(`${new Date().toISOString()}: Pinged the server}`);
+        console.log(`${new Date().toISOString()}: Pinged the server`);
     }
 
     setInterval(ping, INTERVAL_MS);
