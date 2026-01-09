@@ -35,50 +35,50 @@ app.post('/upload-form', async (req, res) => {
     const {id, form} = req.body;
 
     if (form === formCache[id]) {
-        // console.log("form unchanged, skipping")
+        console.log("form unchanged, skipping")
         return res.status(204).end();
     }
 
     formCache[id] = form; // cache the form
 
-    // console.time("request");
+    console.time("request");
     const {error} = await supabase
         .from("forms")
         .upsert(
             { id, form },
             { onConflict: "id" }, // on conflict update the row
         );
-    // console.timeEnd("request");
+    console.timeEnd("request");
 
     if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message }).end();
     }
 
-    res.status(204).end()
+    res.status(204).end();
 })
 
 app.get('/get-form/:id', async (req, res) => {
     const { id } = req.params;
 
     if (formCache[id]) {
-        // console.log("serving from cache")
+        console.log("serving from cache")
         return res.json(formCache[id]);
     }
 
-    // console.time("request");
+    console.time("request");
     const { data, error } = await supabase
         .from("forms")
         .select("form")
         .eq("id", id)
         .single();
-    // console.timeEnd("request");
+    console.timeEnd("request");
 
     if (error) {
-        return res.status(500).send('Error fetching data' + error.message);
+        return res.status(500).send('Error fetching data' + error.message).end();
     }
 
     if (!data || !data.form) {
-        return res.status(404).json(null);
+        return res.status(404).json(null).end();
     }
 
     const form = data.form;
@@ -86,6 +86,7 @@ app.get('/get-form/:id', async (req, res) => {
     formCache[id] = form; // cache the form
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.json(form);
+    return res.end();
 })
 
 app.listen(PORT, () => {
