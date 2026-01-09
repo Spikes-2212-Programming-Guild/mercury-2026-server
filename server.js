@@ -1,31 +1,18 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const PORT = process.env.PORT || 3000;
 const {createClient} = require("@supabase/supabase-js");
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const PORT = process.env.PORT || 3000;
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50kb' }));
 
-async function login(email, password) {
-
-    const { session, error} = await supabase.auth.signInWithPassword({
-        email,
-        password,
-    });
-
-    if (error) {
-        console.error('Login error:', error.message);
-        return;
-    }
-
-    return session?.access_token;
-}
-
-const USER_TOKEN = login(process.env.USERNAME, process.env.PASSWORD);
-
-if (process.env.RENDER) {
+if (process.env.RENDER) { // if it runs on render (and not locally)
     const APP_URL = process.env.RENDER_EXTERNAL_URL;
     const INTERVAL_MS = 14 * 60 * 1000; // ping every 14 minutes
 
@@ -37,35 +24,68 @@ if (process.env.RENDER) {
     setInterval(ping, INTERVAL_MS);
 }
 
-app.post('/upload-form', async (req, res) => {
-    const {id, json_data} = req.body;
+/*
+    TODO:
+     1. maybe add ttl for safety
+ */
 
-    const {error} = await supabase.from("forms").upsert(
-        { id, json_data},
-        { onConflict: "id" }, // on conflict update the row
-        { Authorization: `Bearer ${USER_TOKEN}`}
-    );
+const formCache = {};
+
+app.post('/upload-form', async (req, res) => {
+    const {id, form} = req.body;
+
+    if (form === formCache[id]) {
+        // console.log("form unchanged, skipping")
+        return res.status(204).end();
+    }
+
+    formCache[id] = form; // cache the form
+
+    // console.time("request");
+    const {error} = await supabase
+        .from("forms")
+        .upsert(
+            { id, form },
+            { onConflict: "id" }, // on conflict update the row
+        );
+    // console.timeEnd("request");
 
     if (error) {
-        return res.status(500).send('Error saving data' + error.message);
-    } else {
-        res.send('Thank you for submitting your answers!');
+        return res.status(500).json({ error: error.message });
     }
+
+    res.status(204).end()
 })
 
-app.get('/get-form', async (req, res) => {
-    const headers = req.headers;
-    const id = headers.id;
-    const {data, error} = await supabase
+app.get('/get-form/:id', async (req, res) => {
+    const { id } = req.params;
+
+    if (formCache[id]) {
+        // console.log("serving from cache")
+        return res.json(formCache[id]);
+    }
+
+    // console.time("request");
+    const { data, error } = await supabase
         .from("forms")
-        .select("*")
-        .eq("id", id) // only take rows where "id" = id
+        .select("form")
+        .eq("id", id)
+        .single();
+    // console.timeEnd("request");
 
     if (error) {
         return res.status(500).send('Error fetching data' + error.message);
-    } else {
-        res.send(data);
     }
+
+    if (!data || !data.form) {
+        return res.status(404).json(null);
+    }
+
+    const form = data.form;
+
+    formCache[id] = form; // cache the form
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(form);
 })
 
 app.listen(PORT, () => {
