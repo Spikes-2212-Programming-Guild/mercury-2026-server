@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const compression = require("compression");
 const {createClient} = require("@supabase/supabase-js");
 
 const PORT = process.env.PORT || 3000;
@@ -10,6 +11,7 @@ const supabase = createClient(
 );
 
 app.use(cors());
+app.use(compression());
 app.use(express.json({ limit: '50kb' }));
 
 if (process.env.RENDER) { // if it runs on render (and not locally)
