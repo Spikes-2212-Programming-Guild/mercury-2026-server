@@ -1,7 +1,6 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const compression = require("compression");
 const {createClient} = require("@supabase/supabase-js");
 
 const PORT = process.env.PORT || 3000;
@@ -10,9 +9,10 @@ const supabase = createClient(
     process.env.SUPABASE_KEY
 );
 
+const GOOGLE_SHEETS_URL = process.env.GOOGLE_SHEETS_URL;
+
 app.use(cors());
-app.use(compression());
-app.use(express.json({ limit: '50kb' }));
+app.use(express.json({limit: '50kb'}));
 
 if (process.env.RENDER) { // if it runs on render (and not locally)
     const APP_URL = process.env.RENDER_EXTERNAL_URL;
@@ -58,44 +58,57 @@ function getCache(id) {
 
  */
 app.post('/upload-submission', async (req, res) => {
-    const { form_id, form_version, submission } = req.body;
+    const {form_id, form_version, submission} = req.body;
 
     if (!form_id || !submission || !form_version) {
-        return res.status(400).json({ error: "Invalid request" });
+        return res.status(400).json({error: "Invalid request"});
     }
 
-    const { error } = await supabase
+    const {error} = await supabase
         .from("submissions")
         .insert({form_id, form_version, submission});
 
     if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({error: error.message});
+    }
+
+    try {
+        const response = await fetch(GOOGLE_SHEETS_URL, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                data: submission
+            })
+        });
+        console.log(response);
+    } catch (err) {
+        console.error("Failed to send to Google Sheets:", err.message);
     }
 
     res.sendStatus(201);
 });
 
 app.post('/upload-form', async (req, res) => {
-    const { id, form, version } = req.body;
+    const {id, form, version} = req.body;
 
     if (!id || typeof version !== "number") {
-        return res.status(400).json({ error: "Invalid request, make sure version is a number" });
+        return res.status(400).json({error: "Invalid request, make sure version is a number"});
     }
 
     // fetch current version
-    const { data, error } = await supabase
+    const {data, error} = await supabase
         .from("forms")
         .select("version")
         .eq("id", id)
         .single();
 
     if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({error: error.message});
     }
 
     // make a new form if form doesn't exist
     if (!data) {
-        const { error: insertError } = await supabase
+        const {error: insertError} = await supabase
             .from("forms")
             .insert({
                 id,
@@ -104,10 +117,10 @@ app.post('/upload-form', async (req, res) => {
             });
 
         if (insertError) {
-            return res.status(500).json({ error: insertError.message });
+            return res.status(500).json({error: insertError.message});
         }
 
-        return res.status(201).json({ version: 1 });
+        return res.status(201).json({version: 1});
     }
 
     // if version conflict, send the latest version
@@ -121,7 +134,7 @@ app.post('/upload-form', async (req, res) => {
     const newVersion = version + 1;
     setCache(id, {form, version: newVersion})
 
-    const { error: updateError } = await supabase
+    const {error: updateError} = await supabase
         .from("forms")
         .update({
             form,
@@ -130,14 +143,14 @@ app.post('/upload-form', async (req, res) => {
         .eq("id", id);
 
     if (updateError) {
-        return res.status(500).json({ error: updateError.message });
+        return res.status(500).json({error: updateError.message});
     }
 
-    return res.status(200).json({ version: newVersion });
+    return res.status(200).json({version: newVersion});
 });
 
-app.get('/get-form/:id/:version', async (req, res) =>   {
-    const { id, version } = req.params;
+app.get('/get-form/:id/:version', async (req, res) => {
+    const {id, version} = req.params;
     const clientVersion = Number(version);
 
     const cache = getCache(id);
@@ -157,7 +170,7 @@ app.get('/get-form/:id/:version', async (req, res) =>   {
 
     // fetch version
     console.time("request");
-    const { data, error } = await supabase
+    const {data, error} = await supabase
         .from("forms")
         .select("form, version")
         .eq("id", id)
@@ -165,7 +178,7 @@ app.get('/get-form/:id/:version', async (req, res) =>   {
     console.timeEnd("request");
 
     if (error) {
-        return res.status(500).json({ error: error.message });
+        return res.status(500).json({error: error.message});
     }
 
     if (!data) {
