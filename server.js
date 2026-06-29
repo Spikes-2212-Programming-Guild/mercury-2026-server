@@ -1,13 +1,14 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-const {createClient} = require("@supabase/supabase-js");
+// const {createClient} = require("@supabase/supabase-js");
 
 const PORT = process.env.PORT || 3000;
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
-);
+
+// const supabase = createClient(
+//     process.env.SUPABASE_URL,
+//     process.env.SUPABASE_KEY
+// );
 
 const GOOGLE_SHEETS_URL = process.env.GOOGLE_SHEETS_URL;
 
@@ -58,26 +59,26 @@ function getCache(id) {
 
  */
 app.post('/upload-submission', async (req, res) => {
-    const {form_id, form_version, submission} = req.body;
+    // const {form_id, form_version, submission} = req.body;
 
-    if (!form_id || !submission || !form_version) {
-        return res.status(400).json({error: "Invalid request"});
-    }
+    // if (!form_id || !submission || !form_version) {
+    //     return res.status(400).json({error: "Invalid request"});
+    // }
 
-    const {error} = await supabase
-        .from("submissions")
-        .insert({form_id, form_version, submission});
-
-    if (error) {
-        return res.status(500).json({error: error.message});
-    }
+    // const {error} = await supabase
+    //     .from("submissions")
+    //     .insert({form_id, form_version, submission});
+    //
+    // if (error) {
+    //     return res.status(500).json({error: error.message});
+    // }
 
     try {
         const response = await fetch(GOOGLE_SHEETS_URL, {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
-                data: submission
+                data: req.body
             })
         });
         console.log(response);
@@ -88,119 +89,119 @@ app.post('/upload-submission', async (req, res) => {
     res.sendStatus(201);
 });
 
-app.post('/upload-form', async (req, res) => {
-    const {id, form, version} = req.body;
+// app.post('/upload-form', async (req, res) => {
+//     const {id, form, version} = req.body;
+//
+//     if (!id || typeof version !== "number") {
+//         return res.status(400).json({error: "Invalid request, make sure version is a number"});
+//     }
+//
+//     // fetch current version
+//     const {data, error} = await supabase
+//         .from("forms")
+//         .select("version")
+//         .eq("id", id)
+//         .single();
+//
+//     if (error) {
+//         return res.status(500).json({error: error.message});
+//     }
+//
+//     // make a new form if form doesn't exist
+//     if (!data) {
+//         const {error: insertError} = await supabase
+//             .from("forms")
+//             .insert({
+//                 id,
+//                 form,
+//                 version: 1
+//             });
+//
+//         if (insertError) {
+//             return res.status(500).json({error: insertError.message});
+//         }
+//
+//         return res.status(201).json({version: 1});
+//     }
+//
+//     // if version conflict, send the latest version
+//     if (data.version !== version) {
+//         return res.status(409).json({
+//             currentVersion: data.version
+//         });
+//     }
+//
+//     // update the version
+//     const newVersion = version + 1;
+//     setCache(id, {form, version: newVersion})
+//
+//     const {error: updateError} = await supabase
+//         .from("forms")
+//         .update({
+//             form,
+//             version: newVersion,
+//         })
+//         .eq("id", id);
+//
+//     if (updateError) {
+//         return res.status(500).json({error: updateError.message});
+//     }
+//
+//     return res.status(200).json({version: newVersion});
+// });
 
-    if (!id || typeof version !== "number") {
-        return res.status(400).json({error: "Invalid request, make sure version is a number"});
-    }
-
-    // fetch current version
-    const {data, error} = await supabase
-        .from("forms")
-        .select("version")
-        .eq("id", id)
-        .single();
-
-    if (error) {
-        return res.status(500).json({error: error.message});
-    }
-
-    // make a new form if form doesn't exist
-    if (!data) {
-        const {error: insertError} = await supabase
-            .from("forms")
-            .insert({
-                id,
-                form,
-                version: 1
-            });
-
-        if (insertError) {
-            return res.status(500).json({error: insertError.message});
-        }
-
-        return res.status(201).json({version: 1});
-    }
-
-    // if version conflict, send the latest version
-    if (data.version !== version) {
-        return res.status(409).json({
-            currentVersion: data.version
-        });
-    }
-
-    // update the version
-    const newVersion = version + 1;
-    setCache(id, {form, version: newVersion})
-
-    const {error: updateError} = await supabase
-        .from("forms")
-        .update({
-            form,
-            version: newVersion,
-        })
-        .eq("id", id);
-
-    if (updateError) {
-        return res.status(500).json({error: updateError.message});
-    }
-
-    return res.status(200).json({version: newVersion});
-});
-
-app.get('/get-form/:id/:version', async (req, res) => {
-    const {id, version} = req.params;
-    const clientVersion = Number(version);
-
-    const cache = getCache(id);
-    if (cache) {
-
-        if (cache.version === clientVersion) {
-            console.log("not modified");
-            return res.sendStatus(304);
-        }
-
-        console.log("serving from cache")
-        return res.status(200).json({
-            form: cache.form,
-            version: cache.version
-        })
-    }
-
-    // fetch version
-    console.time("request");
-    const {data, error} = await supabase
-        .from("forms")
-        .select("form, version")
-        .eq("id", id)
-        .single();
-    console.timeEnd("request");
-
-    if (error) {
-        return res.status(500).json({error: error.message});
-    }
-
-    if (!data) {
-        return res.sendStatus(404);
-    }
-
-    setCache(id, {
-        form: data.form,
-        version: data.version
-    });
-
-    if (data.version === clientVersion) {
-        return res.sendStatus(304);
-    }
-
-    console.log(data.version)
-
-    return res.status(200).json({
-        form: data.form,
-        version: data.version
-    });
-})
+// app.get('/get-form/:id/:version', async (req, res) => {
+//     const {id, version} = req.params;
+//     const clientVersion = Number(version);
+//
+//     const cache = getCache(id);
+//     if (cache) {
+//
+//         if (cache.version === clientVersion) {
+//             console.log("not modified");
+//             return res.sendStatus(304);
+//         }
+//
+//         console.log("serving from cache")
+//         return res.status(200).json({
+//             form: cache.form,
+//             version: cache.version
+//         })
+//     }
+//
+//     // fetch version
+//     console.time("request");
+//     const {data, error} = await supabase
+//         .from("forms")
+//         .select("form, version")
+//         .eq("id", id)
+//         .single();
+//     console.timeEnd("request");
+//
+//     if (error) {
+//         return res.status(500).json({error: error.message});
+//     }
+//
+//     if (!data) {
+//         return res.sendStatus(404);
+//     }
+//
+//     setCache(id, {
+//         form: data.form,
+//         version: data.version
+//     });
+//
+//     if (data.version === clientVersion) {
+//         return res.sendStatus(304);
+//     }
+//
+//     console.log(data.version)
+//
+//     return res.status(200).json({
+//         form: data.form,
+//         version: data.version
+//     });
+// })
 
 app.listen(PORT, () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
